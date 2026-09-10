@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: devburguer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dev-burguer-db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  mongo:
+    image: mongo:4.4
+    container_name: dev-burguer-api-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+
+volumes:
+  postgres_data:
+  mongo_data:
+  mongo_config:
