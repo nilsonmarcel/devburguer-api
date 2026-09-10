@@ -14,6 +14,7 @@ API backend do projeto **DevBurguer**, desenvolvida com Node.js, Express, Postgr
 * Multer
 * Yup
 * pnpm
+* Docker
 
 ## 📋 Pré-requisitos
 
@@ -30,6 +31,7 @@ Verifique as versões:
 node --version
 pnpm --version
 docker --version
+docker compose version
 git --version
 ```
 
@@ -64,31 +66,39 @@ Configure as variáveis de ambiente conforme o seu ambiente local.
 
 O projeto utiliza dois bancos de dados:
 
-* PostgreSQL — dados de usuários, produtos e categorias.
-* MongoDB — pedidos.
+* **PostgreSQL** — usuários, produtos e categorias.
+* **MongoDB** — pedidos.
 
-Os serviços podem ser executados através do Docker Desktop.
+Os dois bancos são reproduzidos localmente através do Docker Compose.
 
-### PostgreSQL
+### Subir os bancos
 
-Configuração padrão utilizada no desenvolvimento:
+Na raiz do projeto:
 
-```text
-Host: localhost
-Port: 5432
-Database: dev-burguer-db
-User: postgres
+```bash
+docker compose up -d
 ```
 
-### MongoDB
+Verifique os containers:
 
-Configuração padrão utilizada no desenvolvimento:
-
-```text
-Host: localhost
-Port: 27017
-Database: devburguer
+```bash
+docker ps
 ```
+
+Os serviços utilizam:
+
+| Serviço    | Host      | Porta | Banco          |
+| ---------- | --------- | ----: | -------------- |
+| PostgreSQL | localhost |  5432 | dev-burguer-db |
+| MongoDB    | localhost | 27017 | devburguer     |
+
+### Parar os bancos
+
+```bash
+docker compose down
+```
+
+> Os dados são armazenados em volumes Docker e permanecem disponíveis quando os containers são parados.
 
 ## 🔄 Migrations
 
@@ -98,15 +108,59 @@ Para verificar o estado das migrations:
 npx sequelize-cli db:migrate:status
 ```
 
-Para executar as migrations:
+Para executar as migrations em um banco PostgreSQL novo:
 
 ```bash
 npx sequelize-cli db:migrate
 ```
 
+> Se estiver restaurando o backup completo do PostgreSQL, não é necessário executar as migrations antes da restauração, pois o backup já contém a estrutura do banco e a tabela `SequelizeMeta`.
+
+## 💾 Restauração dos backups
+
+Os backups atuais são mantidos **fora do repositório GitHub**, pois podem conter dados reais do ambiente de desenvolvimento.
+
+Estrutura esperada:
+
+```text
+Devburguer/
+├── DevBurg/
+│   └── ...
+└── backup/
+    ├── postgres/
+    │   └── dev-burguer-db.sql
+    └── mongo/
+        └── dump/
+            └── devburguer/
+                ├── orders.bson
+                └── orders.metadata.json
+```
+
+### Restaurar PostgreSQL
+
+Com o container PostgreSQL em execução:
+
+```bash
+docker exec -i devburguer-postgres psql -U postgres -d dev-burguer-db < ../backup/postgres/dev-burguer-db.sql
+```
+
+### Restaurar MongoDB
+
+Com o container MongoDB em execução:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm \
+  --network container:dev-burguer-api-mongo \
+  -v "$(pwd -W)/../backup/mongo/dump:/backup" \
+  mongo:4.4 \
+  mongorestore --host 127.0.0.1:27017 --db devburguer /backup/devburguer
+```
+
+> Os comandos acima consideram que a pasta `backup` está no mesmo nível da pasta `DevBurg`, conforme a estrutura apresentada.
+
 ## ▶️ Executando a API
 
-Modo desenvolvimento:
+Depois de iniciar os bancos e configurar o `.env`:
 
 ```bash
 pnpm dev
@@ -137,6 +191,7 @@ DevBurg/
 ├── uploads/
 ├── .env.example
 ├── .gitignore
+├── docker-compose.yml
 ├── package.json
 ├── pnpm-lock.yaml
 └── README.md
@@ -150,32 +205,40 @@ O projeto utiliza:
 
 * JWT para autenticação;
 * variáveis de ambiente para configurações;
-* `.env.example` para documentar as variáveis necessárias sem armazenar os valores secretos.
-
-## 💾 Backups
-
-Os backups locais do PostgreSQL e MongoDB são mantidos fora do código-fonte versionado.
-
-Eles são utilizados para preservar os dados do ambiente atual e permitir a recuperação dos bancos quando necessário.
+* `.env.example` para documentar as variáveis necessárias sem armazenar valores secretos.
 
 ## 🛠️ Desenvolvimento
 
-Após configurar Node.js, pnpm, Docker, PostgreSQL, MongoDB e as variáveis de ambiente:
+### Ambiente novo sem restauração de dados
 
 ```bash
 pnpm install
+docker compose up -d
 npx sequelize-cli db:migrate
 pnpm dev
 ```
 
-A API estará disponível em:
+### Ambiente reproduzido com os dados atuais
 
-```text
-http://localhost:3001
+```bash
+pnpm install
+docker compose up -d
+```
+
+Depois, restaure os backups conforme a seção **Restauração dos backups** e execute:
+
+```bash
+pnpm dev
 ```
 
 ## 📌 Status
 
 Projeto em desenvolvimento.
 
-O objetivo é manter o backend preparado para desenvolvimento local, versionamento no GitHub e futura configuração em outro computador.
+O backend está preparado para:
+
+* desenvolvimento local;
+* versionamento no GitHub;
+* PostgreSQL e MongoDB através do Docker Compose;
+* reprodução do ambiente em outro computador;
+* recuperação dos dados através de backups locais.
